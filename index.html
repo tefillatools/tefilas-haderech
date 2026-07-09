@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#7a5230">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Tefilas HaDerech">
+<title>Tefilas HaDerech Calculator</title>
+<style>
+  :root {
+    --bg: #f7f5f0;
+    --card: #ffffff;
+    --ink: #2b2620;
+    --muted: #6b6357;
+    --accent: #7a5230;
+    --accent-light: #e8dcc8;
+    --good: #2e7d32;
+    --good-bg: #e8f5e9;
+    --wait: #b8860b;
+    --wait-bg: #fff8e1;
+    --no: #8a6d3b;
+    --no-bg: #f2ede2;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    padding: 24px 16px 60px;
+  }
+  .wrap { max-width: 560px; margin: 0 auto; }
+  h1 { font-size: 1.5rem; margin: 0 0 4px; text-align: center; }
+  .subtitle { text-align: center; color: var(--muted); font-size: 0.9rem; margin-bottom: 20px; }
+  .card {
+    background: var(--card);
+    border-radius: 14px;
+    padding: 18px;
+    margin-bottom: 16px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  }
+  .field { margin-bottom: 14px; }
+  label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  select, input[type="number"], input[type="text"] {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid #ddd6c9;
+    font-size: 1rem;
+    background: #fffdf9;
+    color: var(--ink);
+  }
+  .row { display: flex; gap: 10px; }
+  .row > * { flex: 1; }
+  .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+  .tab {
+    flex: 1;
+    text-align: center;
+    padding: 10px;
+    border-radius: 10px;
+    background: var(--accent-light);
+    color: var(--accent);
+    font-weight: 600;
+    cursor: pointer;
+    border: 2px solid transparent;
+    font-size: 0.95rem;
+  }
+  .tab.active { background: var(--accent); color: #fff; }
+  .thresholds {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    color: var(--muted);
+    background: #f2ede2;
+    padding: 10px 12px;
+    border-radius: 8px;
+    margin-bottom: 4px;
+  }
+  .thresholds b { color: var(--ink); }
+  .mode { display: none; }
+  .mode.active { display: block; }
+  .checkbox-row { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+  .checkbox-row input { width: auto; }
+  .checkbox-row label { margin: 0; font-weight: 500; color: var(--ink); }
+  button {
+    width: 100%;
+    padding: 12px;
+    border-radius: 10px;
+    border: none;
+    background: var(--accent);
+    color: #fff;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button:disabled { opacity: 0.6; cursor: not-allowed; }
+  button.secondary { background: var(--accent-light); color: var(--accent); margin-top: 8px; }
+  button.small { width: auto; padding: 6px 12px; font-size: 0.8rem; }
+  .gps-status { font-size: 0.85rem; color: var(--muted); margin-top: 10px; text-align: center; }
+  .plan-result {
+    margin-top: 14px;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    display: none;
+    background: #f9f6ef;
+    border-radius: 10px;
+    padding: 14px;
+  }
+  .plan-result.show { display: block; }
+  .plan-result .headline { font-weight: 700; margin-bottom: 6px; }
+  .plan-result .headline.good { color: var(--good); }
+  .plan-result .headline.no { color: var(--no); }
+  .plan-result .detail { color: var(--muted); font-size: 0.88rem; }
+  .banner {
+    border-radius: 12px;
+    padding: 16px;
+    font-weight: 600;
+    text-align: center;
+    font-size: 1.05rem;
+    line-height: 1.4;
+  }
+  .banner.good { background: var(--good-bg); color: var(--good); }
+  .banner.wait { background: var(--wait-bg); color: var(--wait); }
+  .banner.no { background: var(--no-bg); color: var(--no); }
+  .banner .sub { display: block; font-weight: 400; font-size: 0.85rem; margin-top: 6px; }
+  footer {
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.75rem;
+    margin-top: 20px;
+    line-height: 1.5;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Tefilas HaDerech Calculator</h1>
+  <p class="subtitle">Say it once you're past the city's 70 amos buffer, on a journey of a parsah (4 mil) or more.</p>
+
+  <div class="card">
+    <div class="field">
+      <label for="shiur">Amah shiur (opinion)</label>
+      <select id="shiur">
+        <option value="naeh" selected>Rav Chaim Naeh (~0.48m/amah)</option>
+        <option value="ci">Chazon Ish (~0.573m/amah)</option>
+      </select>
+    </div>
+    <div class="thresholds">
+      <span>70 amos ≈ <b id="th-amos">33.6 m</b></span>
+      <span>1 parsah ≈ <b id="th-parsah">3.84 km</b></span>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="plan">Trip planner</div>
+    <div class="tab" data-tab="gps">Live GPS</div>
+  </div>
+
+  <!-- Trip planner mode -->
+  <div class="card mode active" id="mode-plan">
+    <div class="field">
+      <label for="start-place">Starting from (city, address, or postcode)</label>
+      <input type="text" id="start-place" placeholder="e.g. Lakewood NJ or 08701" />
+    </div>
+    <div class="field">
+      <label for="end-place">Going to (city, address, or postcode)</label>
+      <input type="text" id="end-place" placeholder="e.g. Brooklyn NY or 11211" />
+    </div>
+    <button id="plan-btn">Calculate where to say it</button>
+    <div class="plan-result" id="plan-result"></div>
+  </div>
+
+  <!-- Live GPS mode -->
+  <div class="card mode" id="mode-gps">
+    <div class="field">
+      <label for="gps-total">Total trip distance — optional (auto-filled from the planner)</label>
+      <div class="row">
+        <input type="number" id="gps-total" min="0" step="any" placeholder="leave blank if unsure" />
+        <select id="gps-total-unit">
+          <option value="km" selected>km</option>
+          <option value="mi">miles</option>
+          <option value="m">meters</option>
+        </select>
+      </div>
+    </div>
+    <button id="auto-btn">Re-detect city edge (OpenStreetMap)</button>
+    <button id="mark-btn" class="secondary">Or: mark my exit point manually (here)</button>
+    <div class="checkbox-row" style="margin-top:14px">
+      <input type="checkbox" id="voice-alerts" checked />
+      <label for="voice-alerts">Voice alerts (spoken just before &amp; at the tefillah point)</label>
+      <button id="voice-test" class="small secondary" style="margin-top:0">Test</button>
+    </div>
+    <div class="field">
+      <label for="voice-pick">Voice (pick one that sounds natural on your device)</label>
+      <select id="voice-pick"></select>
+    </div>
+    <div class="gps-status" id="gps-status">Starting automatic tracking...</div>
+  </div>
+
+  <div class="banner wait" id="banner">Waiting for location...</div>
+
+  <footer>
+    Tracking and alerts start automatically when the page opens (allow location access, and keep this page open while traveling).<br>
+    This tool offers a general estimate based on common shiurim and does not replace a posek's guidance for your specific situation.
+  </footer>
+</div>
+
+<script>
+  const SHIURIM = {
+    naeh: { amah: 0.48 },
+    ci:   { amah: 0.573 }
+  };
+  const AMOS_BUFFER = 70;
+  const AMOS_PARSAH = 8000;
+  const APPROACH_METERS = 250; // pre-alert this far before the tefillah point
+
+  function currentShiur() { return SHIURIM[document.getElementById('shiur').value]; }
+  function bufferMeters() { return currentShiur().amah * AMOS_BUFFER; }
+  function parsahMeters() { return currentShiur().amah * AMOS_PARSAH; }
+  function toMeters(value, unit) {
+    if (unit === 'km') return value * 1000;
+    if (unit === 'mi') return value * 1609.344;
+    return value;
+  }
+  function formatMeters(m) { return m.toFixed(1) + ' m'; }
+  function formatKm(m) { return (m / 1000).toFixed(2) + ' km'; }
+
+  function updateThresholds() {
+    document.getElementById('th-amos').textContent = formatMeters(bufferMeters());
+    document.getElementById('th-parsah').textContent = formatKm(parsahMeters());
+  }
+
+  function setBanner(state, mainText, subText) {
+    const banner = document.getElementById('banner');
+    banner.className = 'banner ' + state;
+    banner.innerHTML = mainText + (subText ? '<span class="sub">' + subText + '</span>' : '');
+  }
+
+  // ----- Geometry -----
+  function haversineMeters(lat1, lon1, lat2, lon2) {
+    const R = 6371000;
+    const toRad = d => d * Math.PI / 180;
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon/2)**2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  }
+
+  function localXY(originLat, originLon, lat, lon) {
+    const R = 6371000, toRad = d => d * Math.PI / 180;
+    return {
+      x: toRad(lon - originLon) * Math.cos(toRad(originLat)) * R,
+      y: toRad(lat - originLat) * R
+    };
+  }
+
+  function pointInRing(px, py, pts) {
+    let inside = false;
+    for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+      const xi = pts[i].x, yi = pts[i].y, xj = pts[j].x, yj = pts[j].y;
+      if (((yi > py) !== (yj > py)) && (px < (xj - xi) * (py - yi) / (yj - yi) + xi)) inside = !inside;
+    }
+    return inside;
+  }
+
+  function distToSegment(px, py, a, b) {
+    const dx = b.x - a.x, dy = b.y - a.y;
+    const lenSq = dx*dx + dy*dy;
+    let t = lenSq === 0 ? 0 : ((px - a.x)*dx + (py - a.y)*dy) / lenSq;
+    t = Math.max(0, Math.min(1, t));
+    return Math.hypot(px - (a.x + t*dx), py - (a.y + t*dy));
+  }
+
+  // Signed distance past the city edge: positive = outside city, negative = inside
+  function signedDistancePastEdge(rings, lat, lon) {
+    let minD = Infinity, inside = false;
+    for (const ring of rings) {
+      const pts = ring.map(([lo, la]) => localXY(lat, lon, la, lo));
+      if (pointInRing(0, 0, pts)) inside = true;
+      for (let i = 0; i < pts.length; i++) {
+        minD = Math.min(minD, distToSegment(0, 0, pts[i], pts[(i + 1) % pts.length]));
+      }
+    }
+    return inside ? -minD : minD;
+  }
+
+  function extractOuterRings(geojson) {
+    if (!geojson) return null;
+    if (geojson.type === 'Polygon') return [geojson.coordinates[0]];
+    if (geojson.type === 'MultiPolygon') return geojson.coordinates.map(p => p[0]);
+    return null;
+  }
+
+  // ----- OpenStreetMap lookups -----
+  async function fetchCityBoundary(lat, lon) {
+    const url = 'https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=10&polygon_geojson=1'
+      + '&lat=' + encodeURIComponent(lat) + '&lon=' + encodeURIComponent(lon);
+    const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+    if (!res.ok) throw new Error('boundary lookup failed (HTTP ' + res.status + ')');
+    const data = await res.json();
+    const rings = extractOuterRings(data.geojson);
+    if (!rings) throw new Error('no boundary polygon found for this location');
+    const name = data.name
+      || (data.address && (data.address.city || data.address.town || data.address.village))
+      || 'this city';
+    return { rings, name };
+  }
+
+  async function geocode(q) {
+    const url = 'https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=' + encodeURIComponent(q);
+    const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+    if (!res.ok) throw new Error('place lookup failed (HTTP ' + res.status + ')');
+    const arr = await res.json();
+    if (!arr.length) throw new Error('"' + q + '" was not found — try adding a state/country');
+    return { lat: +arr[0].lat, lon: +arr[0].lon, name: arr[0].display_name.split(',').slice(0, 2).join(',') };
+  }
+
+  async function drivingDistance(a, b) {
+    try {
+      const url = 'https://router.project-osrm.org/route/v1/driving/'
+        + a.lon + ',' + a.lat + ';' + b.lon + ',' + b.lat + '?overview=false';
+      const res = await fetch(url);
+      const j = await res.json();
+      if (j.routes && j.routes[0]) return { meters: j.routes[0].distance, how: 'driving route' };
+    } catch (e) { /* fall through to straight line */ }
+    return { meters: haversineMeters(a.lat, a.lon, b.lat, b.lon), how: 'straight line' };
+  }
+
+  // ----- Status evaluation -----
+  // totalKnown=false means the user never told us the trip length (forgot / just drove out)
+  function evaluateStatus(pastCityMeters, totalTripMeters, totalKnown) {
+    const buffer = bufferMeters();
+    const parsah = parsahMeters();
+
+    if (pastCityMeters < buffer) {
+      const remaining = buffer - pastCityMeters;
+      setBanner('wait', 'Not yet — still within the city (plus its 70 amos buffer).',
+        'About ' + formatMeters(remaining) + ' to go before you’re "out of town."');
+      return;
+    }
+    if (totalKnown && totalTripMeters < parsah) {
+      setBanner('no', 'Tefilas HaDerech is not required for this trip.',
+        'Your total journey (' + formatKm(totalTripMeters) + ') is under a parsah (' + formatKm(parsah) + ').');
+      return;
+    }
+    if (!totalKnown && totalTripMeters < parsah) {
+      setBanner('good', 'Past the city — say Tefilas HaDerech if your trip is a parsah or more.',
+        'No trip length entered. If you’re traveling at least ' + formatKm(parsah) + ', say it now.');
+      return;
+    }
+    setBanner('good', 'Say Tefilas HaDerech now.',
+      'You are past the city buffer and your journey (' + formatKm(totalTripMeters) + ') reaches a parsah.');
+  }
+
+  // ----- Voice alerts -----
+  // The Hebrew is spoken with a real Hebrew voice when the device has one
+  // (authentic guttural ches); phonetic English is only the fallback.
+  const HEBREW_NAME = 'תפילת הדרך';
+  const SPOKEN_NAME = 'Tefilas hah-deh-rech';
+
+  function hebrewVoice() {
+    if (!('speechSynthesis' in window)) return null;
+    return speechSynthesis.getVoices().find(v =>
+      v.lang.toLowerCase().startsWith('he') || /hebrew|carmit|ivrit/i.test(v.name)) || null;
+  }
+
+  // Attention chime played before spoken alerts
+  function chime() {
+    try {
+      const ctx = window._audioCtx || (window._audioCtx = new (window.AudioContext || window.webkitAudioContext)());
+      if (ctx.state === 'suspended') ctx.resume();
+      const t = ctx.currentTime;
+      [880, 1174.66].forEach((f, i) => {
+        const o = ctx.createOscillator(), g = ctx.createGain();
+        o.frequency.value = f;
+        o.connect(g); g.connect(ctx.destination);
+        g.gain.setValueAtTime(0.0001, t + i * 0.18);
+        g.gain.exponentialRampToValueAtTime(0.25, t + i * 0.18 + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + i * 0.18 + 0.5);
+        o.start(t + i * 0.18); o.stop(t + i * 0.18 + 0.55);
+      });
+    } catch (e) { /* no audio available */ }
+  }
+
+  function rankVoice(v) {
+    let score = 0;
+    if (/natural|neural|premium|enhanced/i.test(v.name)) score += 4;
+    if (/google|siri/i.test(v.name)) score += 2;
+    if (v.lang.toLowerCase().startsWith('en')) score += 1;
+    if (v.localService === false) score += 1; // cloud voices usually sound less robotic
+    return score;
+  }
+
+  function populateVoices() {
+    const sel = document.getElementById('voice-pick');
+    if (!('speechSynthesis' in window)) { sel.parentElement.style.display = 'none'; return; }
+    const voices = speechSynthesis.getVoices().filter(v => /^(en|he)/i.test(v.lang));
+    if (!voices.length) return;
+    voices.sort((a, b) => rankVoice(b) - rankVoice(a));
+    const saved = localStorage.getItem('thd-voice');
+    sel.innerHTML = '';
+    voices.forEach(v => {
+      const opt = document.createElement('option');
+      opt.value = v.name;
+      opt.textContent = v.name + ' (' + v.lang + ')';
+      sel.appendChild(opt);
+    });
+    sel.value = (saved && voices.some(v => v.name === saved)) ? saved : voices[0].name;
+  }
+  if ('speechSynthesis' in window) {
+    populateVoices();
+    speechSynthesis.onvoiceschanged = populateVoices;
+    document.getElementById('voice-pick').addEventListener('change', (e) => {
+      localStorage.setItem('thd-voice', e.target.value);
+      speak('You may now say {NAME}.');
+    });
+  }
+
+  function englishVoice() {
+    const wanted = document.getElementById('voice-pick').value;
+    return speechSynthesis.getVoices().find(v => v.name === wanted) || null;
+  }
+
+  function queueUtterance(text, voice, lang) {
+    const u = new SpeechSynthesisUtterance(text);
+    try {
+      if (voice) { u.voice = voice; u.lang = voice.lang; }
+      else if (lang) { u.lang = lang; }
+    } catch (e) { if (lang) u.lang = lang; }
+    u.rate = 0.92; // slightly slower reads clearer and less electric
+    speechSynthesis.speak(u);
+  }
+
+  // text may contain {NAME}: spoken in Hebrew with a Hebrew voice when available
+  function speak(text) {
+    if (!document.getElementById('voice-alerts').checked) return;
+    if (!('speechSynthesis' in window)) return;
+    speechSynthesis.cancel();
+    chime();
+    const hv = hebrewVoice();
+    const ev = englishVoice();
+    if (!text.includes('{NAME}') || !hv) {
+      queueUtterance(text.replaceAll('{NAME}', SPOKEN_NAME), ev);
+      return;
+    }
+    const parts = text.split('{NAME}');
+    parts.forEach((part, i) => {
+      if (/[a-z]/i.test(part)) queueUtterance(part, ev);
+      if (i < parts.length - 1) queueUtterance(HEBREW_NAME, hv, 'he-IL');
+    });
+  }
+  document.getElementById('voice-test').addEventListener('click', () => {
+    speak('You may now say {NAME}.');
+  });
+
+  let announcedApproach = false;
+  let announcedNow = false;
+
+  function maybeAnnounce(pastCityMeters, totalTripMeters, totalKnown) {
+    const parsah = parsahMeters();
+    if (totalKnown && totalTripMeters < parsah) return; // definitely not required
+    const remaining = bufferMeters() - pastCityMeters;
+    if (remaining > 0 && remaining <= APPROACH_METERS && !announcedApproach) {
+      announcedApproach = true;
+      speak('Coming up: {NAME} point in about ' + Math.max(10, Math.round(remaining / 10) * 10) + ' meters.');
+    }
+    if (remaining <= 0 && !announcedNow) {
+      announcedNow = true;
+      if (totalKnown || totalTripMeters >= parsah) {
+        speak('You may now say {NAME}.');
+      } else {
+        speak('You have left the city. If your trip is at least ' + (parsah / 1000).toFixed(1) + ' kilometers, you may now say {NAME}.');
+      }
+      // Still in the alert state a little later? Remind once in case it was missed.
+      setTimeout(() => {
+        if (bufferMeters() - lastKnownDistance <= 0) speak('Reminder: you may now say {NAME}.');
+      }, 60000);
+    }
+  }
+
+  // ----- Live GPS tracking -----
+  let markedCoords = null;   // manual-mark fallback
+  let cityRings = null;      // auto-detected city boundary
+  let cityName = '';
+  let watchId = null;
+  let lastKnownDistance = 0; // signed: negative = still inside city
+
+  function readGpsTotalMeters() {
+    const val = parseFloat(document.getElementById('gps-total').value) || 0;
+    const unit = document.getElementById('gps-total-unit').value;
+    return toMeters(val, unit);
+  }
+
+  function updateGps(pastCityMeters) {
+    if (markedCoords === null && cityRings === null) {
+      setBanner('wait', 'Waiting for location...',
+        'Allow location access so alerts can fire automatically — or use the Trip planner.');
+      return;
+    }
+    const dist = pastCityMeters !== undefined ? pastCityMeters : lastKnownDistance;
+    const totalMeters = readGpsTotalMeters();
+    const totalKnown = totalMeters > 0;
+    // distance actually traveled past the city also counts toward the parsah
+    const effectiveTotal = Math.max(totalMeters, dist);
+    evaluateStatus(dist, effectiveTotal, totalKnown || dist >= parsahMeters());
+    maybeAnnounce(dist, effectiveTotal, totalKnown);
+  }
+
+  document.getElementById('gps-total').addEventListener('input', () => updateGps(lastKnownDistance));
+
+  function startWatch(computePastCity, statusText) {
+    const statusEl = document.getElementById('gps-status');
+    if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+    watchId = navigator.geolocation.watchPosition(
+      (p) => {
+        const d = computePastCity(p.coords.latitude, p.coords.longitude);
+        lastKnownDistance = d;
+        statusEl.textContent = statusText(d);
+        updateGps(d);
+      },
+      () => { statusEl.textContent = 'Live tracking interrupted. Tap a button above to restart.'; },
+      { enableHighAccuracy: true, maximumAge: 1000 }
+    );
+  }
+
+  function gpsAutoStatusText(d) {
+    if (d < 0) return 'Tracking. Still inside ' + cityName + ' — ' + formatMeters(-d) + ' to the edge.';
+    return 'Tracking. ' + formatMeters(d) + ' past the edge of ' + cityName + '.';
+  }
+
+  async function autoDetectAt(lat, lon) {
+    const statusEl = document.getElementById('gps-status');
+    statusEl.textContent = 'Looking up city boundary on OpenStreetMap...';
+    const { rings, name } = await fetchCityBoundary(lat, lon);
+    cityRings = rings;
+    cityName = name;
+    markedCoords = null;
+    announcedApproach = false;
+    announcedNow = false;
+    const d = signedDistancePastEdge(cityRings, lat, lon);
+    lastKnownDistance = d;
+    statusEl.textContent = gpsAutoStatusText(d);
+    updateGps(d);
+    startWatch((la, lo) => signedDistancePastEdge(cityRings, la, lo), gpsAutoStatusText);
+  }
+
+  function requirePosition(cb) {
+    const statusEl = document.getElementById('gps-status');
+    if (!('geolocation' in navigator)) {
+      statusEl.textContent = 'Geolocation is not supported in this browser. Use the Trip planner instead.';
+      return;
+    }
+    statusEl.textContent = 'Requesting location permission...';
+    navigator.geolocation.getCurrentPosition(cb, (err) => {
+      statusEl.textContent = 'Location unavailable (' + err.message + '). Use the Trip planner, or tap a button above to retry.';
+      setBanner('wait', 'Location not available.', 'Automatic alerts need location access. The Trip planner works without it.');
+    }, { enableHighAccuracy: true });
+  }
+
+  document.getElementById('auto-btn').addEventListener('click', () => {
+    requirePosition((pos) => {
+      autoDetectAt(pos.coords.latitude, pos.coords.longitude).catch((e) => {
+        document.getElementById('gps-status').textContent =
+          'Could not fetch the city boundary (' + e.message + '). Use "mark my exit point" instead.';
+      });
+    });
+  });
+
+  document.getElementById('mark-btn').addEventListener('click', () => {
+    requirePosition((pos) => {
+      markedCoords = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+      cityRings = null;
+      lastKnownDistance = 0;
+      announcedApproach = false;
+      announcedNow = false;
+      document.getElementById('gps-status').textContent = 'Exit point marked. Tracking distance live...';
+      updateGps(0);
+      startWatch(
+        (lat, lon) => haversineMeters(markedCoords.lat, markedCoords.lon, lat, lon),
+        (d) => 'Distance from exit point: ' + formatMeters(d)
+      );
+    });
+  });
+
+  // ----- Trip planner -----
+  async function planTrip() {
+    const resultEl = document.getElementById('plan-result');
+    const btn = document.getElementById('plan-btn');
+    const startQ = document.getElementById('start-place').value.trim();
+    const endQ = document.getElementById('end-place').value.trim();
+    if (!startQ || !endQ) {
+      resultEl.className = 'plan-result show';
+      resultEl.innerHTML = '<div class="headline no">Enter both a start and a destination.</div>';
+      return;
+    }
+    btn.disabled = true;
+    btn.textContent = 'Calculating...';
+    resultEl.className = 'plan-result show';
+    resultEl.innerHTML = '<div class="detail">Looking up places and route...</div>';
+    try {
+      const start = await geocode(startQ);
+      const end = await geocode(endQ);
+      const [trip, city] = await Promise.all([
+        drivingDistance(start, end),
+        fetchCityBoundary(start.lat, start.lon).catch(() => null)
+      ]);
+      const parsah = parsahMeters();
+      const buffer = bufferMeters();
+      let html = '<div class="detail">' + start.name + ' &rarr; ' + end.name + '<br>'
+        + 'Trip distance: <b>' + formatKm(trip.meters) + '</b> (' + trip.how + ') &middot; parsah threshold: ' + formatKm(parsah) + '</div>';
+
+      if (trip.meters < parsah) {
+        html = '<div class="headline no">Tefilas HaDerech is not required for this trip.</div>' + html
+          + '<div class="detail">The journey is under a parsah.</div>';
+      } else if (!city) {
+        html = '<div class="headline good">Tefilas HaDerech applies to this trip.</div>' + html
+          + '<div class="detail">Couldn’t determine the boundary of your starting city — say it once you’re about '
+          + formatMeters(buffer) + ' (70 amos) past the last houses of town.</div>';
+      } else {
+        const d = signedDistancePastEdge(city.rings, start.lat, start.lon);
+        if (d >= buffer) {
+          html = '<div class="headline good">Tefilas HaDerech applies — and your start point is already outside town.</div>' + html
+            + '<div class="detail">You can say it right after setting out.</div>';
+        } else {
+          const toPoint = (buffer - d); // meters from start to the tefillah point (edge + 70 amos)
+          html = '<div class="headline good">Tefilas HaDerech applies to this trip.</div>' + html
+            + '<div class="detail">The tefillah point is about <b>' + (toPoint >= 1000 ? formatKm(toPoint) : formatMeters(toPoint))
+            + '</b> from your start — that’s ' + formatMeters(buffer) + ' (70 amos) past the edge of <b>' + city.name + '</b>.</div>';
+        }
+        // Feed the trip length to the live tracker so its alerts are definitive
+        const totalInput = document.getElementById('gps-total');
+        totalInput.value = (trip.meters / 1000).toFixed(2);
+        document.getElementById('gps-total-unit').value = 'km';
+        html += '<div class="detail" style="margin-top:6px">Trip length was saved to Live GPS, so the voice alert will fire at the right spot automatically.</div>';
+        updateGps(lastKnownDistance);
+      }
+      resultEl.innerHTML = html;
+    } catch (e) {
+      resultEl.innerHTML = '<div class="headline no">Could not calculate: ' + e.message + '</div>';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Calculate where to say it';
+    }
+  }
+  document.getElementById('plan-btn').addEventListener('click', planTrip);
+
+  // ----- Shiur selector -----
+  document.getElementById('shiur').addEventListener('change', () => {
+    updateThresholds();
+    updateGps(lastKnownDistance);
+  });
+
+  // ----- Tabs -----
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.mode').forEach(m => m.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById('mode-' + tab.dataset.tab).classList.add('active');
+    });
+  });
+
+  // ----- Init: start tracking automatically so a forgetful traveler still gets the alert -----
+  updateThresholds();
+  updateGps();
+  if ('geolocation' in navigator) {
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        autoDetectAt(pos.coords.latitude, pos.coords.longitude).catch((e) => {
+          document.getElementById('gps-status').textContent =
+            'Automatic boundary lookup failed (' + e.message + '). Tap "Re-detect city edge" to retry.';
+        });
+      },
+      () => {
+        document.getElementById('gps-status').textContent =
+          'Location access not granted — automatic alerts are off. Use the Trip planner, or open the Live GPS tab to enable.';
+      },
+      { enableHighAccuracy: true, timeout: 15000 }
+    );
+  }
+
+  // Debug hooks (used in testing)
+  window._debugSetCity = (rings, name) => { cityRings = rings; cityName = name || 'test city'; markedCoords = null; };
+  window._debugDistance = (lat, lon) => signedDistancePastEdge(cityRings, lat, lon);
+  window._debugUpdate = (d) => { lastKnownDistance = d; updateGps(d); };
+</script>
+</body>
+</html>
