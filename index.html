@@ -158,6 +158,7 @@
       <span>70 amos ≈ <b id="th-amos">33.6 m</b></span>
       <span>1 parsah ≈ <b id="th-parsah">3.84 km</b></span>
     </div>
+    <button id="big-voice-test" style="margin-top:12px">&#128266; Test the voice alert</button>
   </div>
 
   <div class="tabs">
@@ -441,8 +442,8 @@
   }
 
   // text may contain {NAME}: spoken in Hebrew with a Hebrew voice when available
-  function speak(text) {
-    if (!document.getElementById('voice-alerts').checked) return;
+  function speak(text, force) {
+    if (!force && !document.getElementById('voice-alerts').checked) return;
     if (!('speechSynthesis' in window)) return;
     speechSynthesis.cancel();
     chime();
@@ -460,6 +461,9 @@
   }
   document.getElementById('voice-test').addEventListener('click', () => {
     speak('You may now say {NAME}.');
+  });
+  document.getElementById('big-voice-test').addEventListener('click', () => {
+    speak('This is a test of your travel alert. Coming up: {NAME} point ahead. You may now say {NAME}. Have a safe trip.', true);
   });
 
   let announcedApproach = false;
