@@ -242,6 +242,7 @@
       <input type="checkbox" id="read-prayer" checked />
       <label for="read-prayer">Offer to read the full tefillah aloud at the tefillah point</label>
     </div>
+    <button id="sim-btn" class="secondary">Test it: simulate driving past the tefillah point</button>
     <div class="gps-status" id="gps-status">Starting automatic tracking...</div>
   </div>
 
@@ -631,6 +632,29 @@
   document.getElementById('read-prayer').checked = localStorage.getItem('thd-read-prayer') !== '0';
   document.getElementById('read-prayer').addEventListener('change', (e) => {
     localStorage.setItem('thd-read-prayer', e.target.checked ? '1' : '0');
+  });
+
+  // Simulated drive: runs the real alert pipeline — approach alert first,
+  // then the tefillah-point alert with the read-aloud offer a few seconds later.
+  document.getElementById('sim-btn').addEventListener('click', () => {
+    const totalEl = document.getElementById('gps-total');
+    if (!(parseFloat(totalEl.value) > 0)) {
+      totalEl.value = 10;
+      document.getElementById('gps-total-unit').value = 'km';
+    }
+    if (markedCoords === null && cityRings === null) markedCoords = { lat: 0, lon: 0 };
+    announcedApproach = false;
+    announcedNow = false;
+    prayerOffered = false;
+    prayerAccepted = false;
+    document.getElementById('prayer-accept').hidden = true;
+    const buf = bufferMeters();
+    lastKnownDistance = buf - 100;
+    updateGps(lastKnownDistance);
+    setTimeout(() => {
+      lastKnownDistance = buf + 50;
+      updateGps(lastKnownDistance);
+    }, 6000);
   });
 
   let announcedApproach = false;
