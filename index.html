@@ -1088,7 +1088,7 @@
 
   // ----- Installable app + update alerts -----
   // Each release: bump VERSION in sw.js and APP_VERSION/WHATS_NEW here.
-  const APP_VERSION = '2026-10-15b';
+  const APP_VERSION = '2026-10-15c';
   const WHATS_NEW = 'Tracking keeps going while you travel, a trip-start alert, STAR-K shiurim, a once-a-day reminder, and v’sachzireinu for same-day returns.';
 
   (function showWhatsNew() {
@@ -1120,15 +1120,16 @@
       notify('Tefilas HaDerech app updated', 'Open the app and tap Update to get the newest version.', 'update');
     }
 
+    // Only an update if an older version was already running
+    function watchInstall(w) {
+      w.addEventListener('statechange', () => {
+        if (w.state === 'installed' && navigator.serviceWorker.controller) offerUpdate(w);
+      });
+    }
     navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then((reg) => {
       if (reg.waiting && navigator.serviceWorker.controller) offerUpdate(reg.waiting);
-      reg.addEventListener('updatefound', () => {
-        const w = reg.installing;
-        w.addEventListener('statechange', () => {
-          // Only an update if an older version was already running
-          if (w.state === 'installed' && navigator.serviceWorker.controller) offerUpdate(w);
-        });
-      });
+      if (reg.installing) watchInstall(reg.installing); // update already started before we got here
+      reg.addEventListener('updatefound', () => watchInstall(reg.installing));
       // Check for a new version on open, when returning to the app, and every 30 minutes.
       document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reg.update(); });
       setInterval(() => reg.update(), 30 * 60 * 1000);

@@ -1,10 +1,11 @@
 // Bump VERSION with every release: installed copies notice the change and tell the user.
-const VERSION = '2026-10-15b';
+const VERSION = '2026-10-15c';
 const CACHE = 'thd-' + VERSION;
 const FILES = ['./', 'index.html', 'manifest.json', 'icon-192.png', 'icon-512.png'];
 
+// cache: 'reload' skips the browser's HTTP cache, so a new version never saves stale files.
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)));
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES.map((f) => new Request(f, { cache: 'reload' })))));
 });
 
 self.addEventListener('activate', (e) => {
@@ -25,7 +26,7 @@ self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
   if (e.request.method !== 'GET' || url.origin !== self.location.origin) return;
   e.respondWith(
-    fetch(e.request)
+    fetch(e.request, { cache: 'no-cache' })
       .then((res) => {
         if (res.ok) {
           const copy = res.clone();
