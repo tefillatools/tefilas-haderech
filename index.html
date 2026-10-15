@@ -9,6 +9,9 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Tefilas HaDerech">
 <title>Tefilas HaDerech Calculator</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
 <style>
   :root {
     --bg: #f7f5f0;
@@ -105,6 +108,17 @@
   button:disabled { opacity: 0.6; cursor: not-allowed; }
   button.secondary { background: var(--accent-light); color: var(--accent); margin-top: 8px; }
   button.small { width: auto; padding: 6px 12px; font-size: 0.8rem; }
+  .psak-note { font-size: 0.8rem; color: var(--muted); margin: 0 0 8px; line-height: 1.4; }
+  .update-bar {
+    position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 60;
+    max-width: 536px; margin: 0 auto;
+    background: var(--ink); color: #fff; border-radius: 12px; padding: 12px 14px;
+    display: flex; gap: 10px; align-items: center; font-size: 0.9rem;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+  }
+  .update-bar[hidden] { display: none; }
+  .update-bar span { flex: 1; }
+  .update-bar button { width: auto; padding: 8px 14px; background: var(--good); }
   .gps-status { font-size: 0.85rem; color: var(--muted); margin-top: 10px; text-align: center; }
   .plan-result {
     margin-top: 14px;
@@ -177,13 +191,15 @@
 <body>
 <div class="wrap">
   <h1>Tefilas HaDerech Calculator</h1>
-  <p class="subtitle">Say it once you're past the city's 70 amos buffer, on a journey of a parsah (4 mil) or more.</p>
+  <p class="subtitle">Say it once a day when traveling out of town — after passing 70 amos beyond the last houses of the built-up area, on a trip that goes at least a parsa past open land and leaves the metropolitan area.</p>
 
   <div class="card">
     <div class="field">
-      <label for="shiur">Amah shiur (opinion)</label>
+      <label for="shiur">Shiur (opinion)</label>
+      <p class="psak-note">Follows the psak of STAR-K (Rav Moshe Heinemann) by default. You can choose another shiur below — ask your rav which to follow.</p>
       <select id="shiur">
-        <option value="naeh" selected>Rav Chaim Naeh (~0.48m/amah)</option>
+        <option value="stark" selected>STAR-K / Rav Heinemann (70 amos = 42 yd, parsa = 2.8 mi)</option>
+        <option value="naeh">Rav Chaim Naeh (~0.48m/amah)</option>
         <option value="ci">Chazon Ish (~0.573m/amah)</option>
       </select>
     </div>
@@ -242,17 +258,24 @@
       <input type="checkbox" id="read-prayer" checked />
       <label for="read-prayer">Offer to read the full tefillah aloud at the tefillah point</label>
     </div>
+    <button id="notify-btn" class="secondary" hidden>&#128276; Turn on phone notifications</button>
     <button id="sim-btn" class="secondary">Test it: simulate driving past the tefillah point</button>
     <div class="gps-status" id="gps-status">Starting automatic tracking...</div>
   </div>
 
   <div class="banner wait" id="banner">Waiting for location...</div>
   <button id="prayer-accept" class="prayer-accept" hidden>&#128266; Read Tefilas HaDerech aloud now</button>
+  <button class="said-btn secondary">&#10003; I said it</button>
 
   <div class="prayer-overlay" id="prayer-overlay">
+    <div class="checkbox-row" style="justify-content:center;margin-bottom:4px">
+      <input type="checkbox" id="return-today" />
+      <label for="return-today">Coming back today (adds v’sachzireinu l’shalom)</label>
+    </div>
     <div class="prayer-note" id="prayer-note"></div>
     <div class="prayer-text" id="prayer-text" dir="rtl" lang="he"></div>
     <div class="btn-row">
+      <button class="said-btn" style="background:var(--good);margin-bottom:8px">&#10003; I said it</button>
       <button id="prayer-read">&#128266; Read aloud</button>
       <button id="prayer-stop" class="secondary" hidden>Stop reading</button>
       <button id="prayer-close" class="secondary">Close</button>
@@ -260,16 +283,28 @@
     </div>
   </div>
 
+  <div class="card" id="install-card" hidden>
+    <button id="install-btn">&#11015; Install the app on this phone</button>
+    <div class="gps-status" id="install-help"></div>
+  </div>
+
+  <div class="update-bar" id="update-bar" hidden>
+    <span id="update-text">A new version of the app is ready.</span>
+    <button id="update-btn">Update</button>
+  </div>
+
   <footer>
-    Tracking and alerts start automatically when the page opens (allow location access, and keep this page open while traveling).<br>
+    Tracking and alerts start automatically when the page opens (allow location access, and keep this page open and on screen while traveling — phones pause GPS for web pages when the screen is off or another app is in front).<br>
     This tool offers a general estimate based on common shiurim and does not replace a posek's guidance for your specific situation.
   </footer>
 </div>
 
 <script>
   const SHIURIM = {
-    naeh: { amah: 0.48 },
-    ci:   { amah: 0.573 }
+    // STAR-K (Rav Heinemann): 70 amos = 42 yards, parsa = 2.8 miles
+    stark: { amah: 38.4048 / 70, parsah: 2.8 * 1609.344 },
+    naeh:  { amah: 0.48 },
+    ci:    { amah: 0.573 }
   };
   const AMOS_BUFFER = 70;
   const AMOS_PARSAH = 8000;
@@ -277,7 +312,7 @@
 
   function currentShiur() { return SHIURIM[document.getElementById('shiur').value]; }
   function bufferMeters() { return currentShiur().amah * AMOS_BUFFER; }
-  function parsahMeters() { return currentShiur().amah * AMOS_PARSAH; }
+  function parsahMeters() { return currentShiur().parsah || currentShiur().amah * AMOS_PARSAH; }
   function toMeters(value, unit) {
     if (unit === 'km') return value * 1000;
     if (unit === 'mi') return value * 1609.344;
@@ -287,8 +322,8 @@
   function formatKm(m) { return (m / 1000).toFixed(2) + ' km'; }
 
   function updateThresholds() {
-    document.getElementById('th-amos').textContent = formatMeters(bufferMeters());
-    document.getElementById('th-parsah').textContent = formatKm(parsahMeters());
+    document.getElementById('th-amos').textContent = formatMeters(bufferMeters()) + ' (' + Math.round(bufferMeters() / 0.9144) + ' yd)';
+    document.getElementById('th-parsah').textContent = formatKm(parsahMeters()) + ' (' + (parsahMeters() / 1609.344).toFixed(1) + ' mi)';
   }
 
   function setBanner(state, mainText, subText) {
@@ -393,24 +428,30 @@
     const buffer = bufferMeters();
     const parsah = parsahMeters();
 
+    const saidAt = saidTodayTime();
+    if (saidAt && pastCityMeters >= buffer) {
+      setBanner('no', 'You already said Tefilas HaDerech today (' + saidAt + ').',
+        'It is said only once a day, even on a long trip. Tap "I said it" again tomorrow.');
+      return;
+    }
     if (pastCityMeters < buffer) {
       const remaining = buffer - pastCityMeters;
-      setBanner('wait', 'Not yet — still within the city (plus its 70 amos buffer).',
-        'About ' + formatMeters(remaining) + ' to go before you’re "out of town."');
+      setBanner('wait', 'Not yet — still within the town (plus its 70 amos).',
+        'About ' + formatMeters(remaining) + ' to go by the map’s town boundary. If houses still line the road, wait until they end.');
       return;
     }
     if (totalKnown && totalTripMeters < parsah) {
       setBanner('no', 'Tefilas HaDerech is not required for this trip.',
-        'Your total journey (' + formatKm(totalTripMeters) + ') is under a parsah (' + formatKm(parsah) + ').');
+        'Your journey (' + formatKm(totalTripMeters) + ') is under a parsa (' + formatKm(parsah) + ').');
       return;
     }
     if (!totalKnown && totalTripMeters < parsah) {
-      setBanner('good', 'Past the city — say Tefilas HaDerech if your trip is a parsah or more.',
-        'No trip length entered. If you’re traveling at least ' + formatKm(parsah) + ', say it now.');
+      setBanner('good', 'Out of town — say Tefilas HaDerech if this is a real trip.',
+        'Say it if you are going at least a parsa (' + (parsah / 1609.344).toFixed(1) + ' mi) past open land and leaving the metropolitan area — and there are no houses on either side here.');
       return;
     }
     setBanner('good', 'Say Tefilas HaDerech now.',
-      'You are past the city buffer and your journey (' + formatKm(totalTripMeters) + ') reaches a parsah.');
+      'You are 70 amos past the town and your trip reaches a parsa. If houses still line the road (same metro area), wait until they end.');
   }
 
   // ----- Voice alerts -----
@@ -579,9 +620,10 @@
     speechSynthesis.cancel();
     note.textContent = 'Reading aloud...';
     const ev = englishVoice();
-    PRAYER_PHRASES.forEach((phrase, i) => {
+    const phrases = prayerPhrases();
+    phrases.forEach((phrase, i) => {
       const u = queueUtterance(phrase.say, ev, 'en-US');
-      if (i === PRAYER_PHRASES.length - 1) {
+      if (i === phrases.length - 1) {
         u.onend = u.onerror = () => {
           if (!reciting) return; // stopped manually
           endRecitation('Recitation complete.');
@@ -593,7 +635,9 @@
   function recitePrayer() {
     const note = document.getElementById('prayer-note');
     reciting = true;
-    note.textContent = 'Playing the recording...';
+    note.textContent = returningToday()
+      ? 'Playing the recording — it does not include v’sachzireinu l’shalom; add it yourself after "ul’shalom".'
+      : 'Playing the recording...';
     document.getElementById('prayer-stop').hidden = false;
     const a = prayerAudioEl();
     a.onended = () => { if (reciting) endRecitation('Recitation complete.'); };
@@ -622,7 +666,44 @@
     document.getElementById('prayer-accept').hidden = true;
   }
 
-  document.getElementById('prayer-text').textContent = PRAYER_PHRASES.map(p => p.he).join(' ');
+  // Returning the same day: add v'sachzireinu l'shalom after "ul'shalom" (Shulchan Aruch Harav's compromise).
+  const RETURN_HE = 'וְתַחֲזִירֵנוּ לְשָׁלוֹם,';
+  const RETURN_SAY = 'vesa-cha-zee-ray-noo leshaw-loym,';
+  function returningToday() { return document.getElementById('return-today').checked; }
+  function prayerPhrases() {
+    if (!returningToday()) return PRAYER_PHRASES;
+    return PRAYER_PHRASES.map((p, i) => i === 2 ? { he: p.he + ' ' + RETURN_HE, say: p.say + ' ' + RETURN_SAY } : p);
+  }
+  function renderPrayerText() {
+    document.getElementById('prayer-text').textContent = prayerPhrases().map(p => p.he).join(' ');
+  }
+  document.getElementById('return-today').addEventListener('change', renderPrayerText);
+  renderPrayerText();
+
+  // ----- Once a day -----
+  // "Day" runs from waking to going to sleep; treat anything before 4am as the previous day.
+  function dayKey(t) { return new Date(t - 4 * 3600 * 1000).toDateString(); }
+  function saidTodayTime() {
+    let t = 0;
+    try { t = +localStorage.getItem('thd-said-at') || 0; } catch (e) {}
+    return t && dayKey(t) === dayKey(Date.now()) ? new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : null;
+  }
+  function toggleSaid() {
+    try {
+      if (saidTodayTime()) localStorage.removeItem('thd-said-at');
+      else localStorage.setItem('thd-said-at', String(Date.now()));
+    } catch (e) {}
+    refreshSaidButtons();
+    updateGps(lastKnownDistance);
+  }
+  function refreshSaidButtons() {
+    const said = saidTodayTime();
+    document.querySelectorAll('.said-btn').forEach(b => {
+      b.textContent = said ? '✓ Said today at ' + said + ' (tap to undo)' : '✓ I said it';
+    });
+  }
+  document.querySelectorAll('.said-btn').forEach(b => b.addEventListener('click', toggleSaid));
+  refreshSaidButtons();
   document.getElementById('show-prayer-btn').addEventListener('click', () => openPrayer(false));
   document.getElementById('prayer-accept').addEventListener('click', () => { prayerAccepted = true; openPrayer(true); });
   document.getElementById('prayer-read').addEventListener('click', recitePrayer);
@@ -663,13 +744,17 @@
   function maybeAnnounce(pastCityMeters, totalTripMeters, totalKnown) {
     const parsah = parsahMeters();
     if (totalKnown && totalTripMeters < parsah) return; // definitely not required
+    if (saidTodayTime()) return; // only once a day
     const remaining = bufferMeters() - pastCityMeters;
     if (remaining > 0 && remaining <= APPROACH_METERS && !announcedApproach) {
       announcedApproach = true;
       speak('Coming up: {NAME} point in about ' + Math.max(10, Math.round(remaining / 10) * 10) + ' meters.');
+      notify('Tefilas HaDerech coming up', 'About ' + Math.max(10, Math.round(remaining / 10) * 10) + ' m to the tefillah point.', 'approach');
     }
     if (remaining <= 0 && !announcedNow) {
       announcedNow = true;
+      notify(tripStarted ? 'Say Tefilas HaDerech now' : 'You have left town — say Tefilas HaDerech',
+        'You are past the city and its 70 amos. Tap to open the tefillah.', 'now');
       const offerRead = !prayerOffered && document.getElementById('read-prayer').checked &&
         ('speechSynthesis' in window);
       const tapPrompt = offerRead ? ' Tap the green button to hear it read aloud.' : '';
@@ -687,6 +772,56 @@
       setTimeout(() => {
         if (!reciting && !prayerAccepted && bufferMeters() - lastKnownDistance <= 0) speak('Reminder: you may now say {NAME}.');
       }, 60000);
+    }
+  }
+
+  // ----- Phone notifications -----
+  // Shown through the service worker so they also appear on Android/installed iPhone apps.
+  async function notify(title, body, tag) {
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    const opts = { body, tag: 'thd-' + tag, renotify: true, icon: 'icon-192.png', badge: 'icon-192.png', vibrate: [300, 150, 300] };
+    try {
+      const reg = 'serviceWorker' in navigator && await navigator.serviceWorker.getRegistration();
+      if (reg) return reg.showNotification(title, opts);
+      new Notification(title, opts);
+    } catch (e) { /* notifications blocked on this device */ }
+  }
+
+  function refreshNotifyButton() {
+    const btn = document.getElementById('notify-btn');
+    if (!('Notification' in window)) { btn.hidden = true; return; }
+    const p = Notification.permission;
+    btn.hidden = p === 'granted';
+    btn.disabled = p === 'denied';
+    btn.textContent = p === 'denied'
+      ? 'Notifications are blocked — turn them on in your phone settings'
+      : '\u{1F514} Turn on phone notifications';
+  }
+  document.getElementById('notify-btn').addEventListener('click', async () => {
+    await Notification.requestPermission();
+    refreshNotifyButton();
+    notify('Notifications are on', 'You will be alerted when you start travelling and when to say Tefilas HaDerech.', 'test');
+  });
+  refreshNotifyButton();
+
+  // ----- Trip start detection -----
+  // Alerts the traveler that the app has noticed they are on the move — so someone who
+  // left town without thinking about it still hears that tracking is on.
+  const TRIP_SPEED_MS = 4.5; // ~16 km/h: faster than walking
+  let tripStarted = false;
+  let prevFix = null;
+  function checkTripStart(p) {
+    const now = p.timestamp || Date.now();
+    let speed = p.coords.speed;
+    if ((speed === null || isNaN(speed)) && prevFix && now > prevFix.t) {
+      speed = haversineMeters(prevFix.lat, prevFix.lon, p.coords.latitude, p.coords.longitude) / ((now - prevFix.t) / 1000);
+    }
+    prevFix = { lat: p.coords.latitude, lon: p.coords.longitude, t: now };
+    if (tripStarted || !(speed >= TRIP_SPEED_MS)) return;
+    tripStarted = true;
+    if (bufferMeters() - lastKnownDistance > 0) {
+      speak('Trip started. I will tell you when to say {NAME}.');
+      notify('Trip started', 'Tracking is on — you will be alerted when to say Tefilas HaDerech. Keep this page open.', 'trip');
     }
   }
 
@@ -720,20 +855,58 @@
 
   document.getElementById('gps-total').addEventListener('input', () => updateGps(lastKnownDistance));
 
+  // Phones stop GPS for web pages when the screen turns off, so keep it on while tracking.
+  let wakeLock = null;
+  async function keepScreenOn() {
+    if (!('wakeLock' in navigator) || wakeLock || document.visibilityState !== 'visible') return;
+    try {
+      wakeLock = await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release', () => { wakeLock = null; });
+    } catch (e) { /* not allowed (e.g. low battery) — tracking still works while the screen is on */ }
+  }
+
+  let activeCompute = null, activeStatusText = null, lastFixTime = 0;
+
   function startWatch(computePastCity, statusText) {
     const statusEl = document.getElementById('gps-status');
+    activeCompute = computePastCity;
+    activeStatusText = statusText;
     if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+    keepScreenOn();
     watchId = navigator.geolocation.watchPosition(
       (p) => {
-        const d = computePastCity(p.coords.latitude, p.coords.longitude);
+        lastFixTime = Date.now();
+        checkTripStart(p);
+        const d = activeCompute(p.coords.latitude, p.coords.longitude);
         lastKnownDistance = d;
-        statusEl.textContent = statusText(d);
+        statusEl.textContent = activeStatusText(d) + ' (updated ' + new Date().toLocaleTimeString() + ')';
         updateGps(d);
       },
-      () => { statusEl.textContent = 'Live tracking interrupted. Tap a button above to restart.'; },
+      (err) => {
+        if (err.code === err.PERMISSION_DENIED) {
+          statusEl.textContent = 'Location permission was turned off. Allow location for this site, then tap a button above.';
+        } else {
+          // Weak signal (tunnel, indoors) — the watch keeps running and resumes by itself.
+          statusEl.textContent = 'Waiting for GPS signal... (tracking is still on)';
+        }
+      },
       { enableHighAccuracy: true, maximumAge: 1000 }
     );
   }
+
+  // When the traveler comes back to the page (screen unlocked / switched back from another app),
+  // browsers have often silently stopped the GPS watch — restart it and re-lock the screen.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible' || !activeCompute) return;
+    startWatch(activeCompute, activeStatusText);
+  });
+
+  // If no GPS fix has arrived for a while, restart the watch.
+  setInterval(() => {
+    if (activeCompute && document.visibilityState === 'visible' && Date.now() - lastFixTime > 30000) {
+      startWatch(activeCompute, activeStatusText);
+    }
+  }, 30000);
 
   function gpsAutoStatusText(d) {
     if (d < 0) return 'Tracking. Still inside ' + cityName + ' — ' + formatMeters(-d) + ' to the edge.';
@@ -881,21 +1054,108 @@
   // ----- Init: start tracking automatically so a forgetful traveler still gets the alert -----
   updateThresholds();
   updateGps();
+  // If the boundary lookup fails, don't leave the traveler untracked: measure from where they are
+  // now, and keep retrying the real boundary in the background.
+  function fallbackTrackFrom(lat, lon, reason) {
+    markedCoords = { lat, lon };
+    cityRings = null;
+    lastKnownDistance = 0;
+    updateGps(0);
+    startWatch(
+      (la, lo) => haversineMeters(markedCoords.lat, markedCoords.lon, la, lo),
+      (d) => 'City edge not found (' + reason + ') — measuring from your starting point: ' + formatMeters(d)
+    );
+    setTimeout(() => {
+      if (cityRings !== null || markedCoords === null) return;
+      autoDetectAt(lat, lon).catch(() => {});
+    }, 20000);
+  }
+
   if ('geolocation' in navigator) {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        autoDetectAt(pos.coords.latitude, pos.coords.longitude).catch((e) => {
-          document.getElementById('gps-status').textContent =
-            'Automatic boundary lookup failed (' + e.message + '). Tap "Re-detect city edge" to retry.';
-        });
+        const { latitude, longitude } = pos.coords;
+        autoDetectAt(latitude, longitude).catch((e) => fallbackTrackFrom(latitude, longitude, e.message));
       },
-      () => {
-        document.getElementById('gps-status').textContent =
-          'Location access not granted — automatic alerts are off. Use the Trip planner, or open the Live GPS tab to enable.';
+      (err) => {
+        document.getElementById('gps-status').textContent = err.code === err.PERMISSION_DENIED
+          ? 'Location access not granted — automatic alerts are off. Allow location for this site, then tap "Re-detect city edge".'
+          : 'Could not get your location yet. Tap "Re-detect city edge" once you have GPS signal.';
       },
-      { enableHighAccuracy: true, timeout: 15000 }
+      { enableHighAccuracy: true, maximumAge: 60000 }
     );
   }
+
+  // ----- Installable app + update alerts -----
+  // Each release: bump VERSION in sw.js and APP_VERSION/WHATS_NEW here.
+  const APP_VERSION = '2026-10-15';
+  const WHATS_NEW = 'Tracking keeps going while you travel, a trip-start alert, STAR-K shiurim, a once-a-day reminder, and v’sachzireinu for same-day returns.';
+
+  (function showWhatsNew() {
+    let seen = null;
+    try { seen = localStorage.getItem('thd-version'); localStorage.setItem('thd-version', APP_VERSION); } catch (e) {}
+    if (seen && seen !== APP_VERSION) {
+      document.getElementById('update-text').textContent = 'Updated! New: ' + WHATS_NEW;
+      document.getElementById('update-btn').textContent = 'OK';
+      document.getElementById('update-btn').onclick = () => { document.getElementById('update-bar').hidden = true; };
+      document.getElementById('update-bar').hidden = false;
+    }
+  })();
+
+  if ('serviceWorker' in navigator) {
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (refreshing) return;
+      refreshing = true;
+      location.reload();
+    });
+
+    function offerUpdate(worker) {
+      document.getElementById('update-text').textContent = 'A new version of the app is ready.';
+      const btn = document.getElementById('update-btn');
+      btn.textContent = 'Update';
+      btn.onclick = () => worker.postMessage('skipWaiting');
+      document.getElementById('update-bar').hidden = false;
+      notify('Tefilas HaDerech app updated', 'Open the app and tap Update to get the newest version.', 'update');
+    }
+
+    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then((reg) => {
+      if (reg.waiting && navigator.serviceWorker.controller) offerUpdate(reg.waiting);
+      reg.addEventListener('updatefound', () => {
+        const w = reg.installing;
+        w.addEventListener('statechange', () => {
+          // Only an update if an older version was already running
+          if (w.state === 'installed' && navigator.serviceWorker.controller) offerUpdate(w);
+        });
+      });
+      // Check for a new version on open, when returning to the app, and every 30 minutes.
+      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reg.update(); });
+      setInterval(() => reg.update(), 30 * 60 * 1000);
+    }).catch(() => { /* not supported here (e.g. private mode) */ });
+  }
+
+  // Install button: Android/desktop Chrome give a real prompt; iPhone needs Share → Add to Home Screen.
+  (function setupInstall() {
+    const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+    if (standalone) return;
+    const card = document.getElementById('install-card');
+    const help = document.getElementById('install-help');
+    const btn = document.getElementById('install-btn');
+    let deferred = null;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferred = e;
+      card.hidden = false;
+    });
+    btn.addEventListener('click', async () => {
+      if (deferred) { deferred.prompt(); await deferred.userChoice; deferred = null; card.hidden = true; }
+    });
+    if (/iphone|ipad|ipod/i.test(navigator.userAgent)) {
+      card.hidden = false;
+      btn.hidden = true;
+      help.innerHTML = 'To install on iPhone: tap the <b>Share</b> button, then <b>Add to Home Screen</b>. Notifications on iPhone only work from the installed app.';
+    }
+  })();
 
   // Debug hooks (used in testing)
   window._debugSetCity = (rings, name) => { cityRings = rings; cityName = name || 'test city'; markedCoords = null; };
