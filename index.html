@@ -108,6 +108,10 @@
   button:disabled { opacity: 0.6; cursor: not-allowed; }
   button.secondary { background: var(--accent-light); color: var(--accent); margin-top: 8px; }
   button.small { width: auto; padding: 6px 12px; font-size: 0.8rem; }
+  .limits {
+    margin-top: 16px; padding: 12px 14px; border-radius: 10px;
+    background: var(--wait-bg); color: var(--ink); font-size: 0.85rem; line-height: 1.5;
+  }
   .psak-note { font-size: 0.8rem; color: var(--muted); margin: 0 0 8px; line-height: 1.4; }
   .update-bar {
     position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 60;
@@ -247,7 +251,7 @@
     <button id="mark-btn" class="secondary">Or: mark my exit point manually (here)</button>
     <div class="checkbox-row" style="margin-top:14px">
       <input type="checkbox" id="voice-alerts" checked />
-      <label for="voice-alerts">Voice alerts (spoken just before &amp; at the tefillah point)</label>
+      <label for="voice-alerts">Voice alert (spoken once, when you leave town)</label>
       <button id="voice-test" class="small secondary" style="margin-top:0">Test</button>
     </div>
     <div class="field">
@@ -293,8 +297,12 @@
     <button id="update-btn">Update</button>
   </div>
 
+  <div class="limits">
+    <b>Good to know:</b> keep the app open on screen while traveling — it can’t track you when it’s closed or the screen is off.
+    On iPhone, install it first (Share → Add to Home Screen) to get notifications.
+  </div>
+
   <footer>
-    Tracking and alerts start automatically when the page opens (allow location access, and keep this page open and on screen while traveling — phones pause GPS for web pages when the screen is off or another app is in front).<br>
     This tool offers a general estimate based on common shiurim and does not replace a posek's guidance for your specific situation.
   </footer>
 </div>
@@ -745,15 +753,11 @@
     const parsah = parsahMeters();
     if (totalKnown && totalTripMeters < parsah) return; // definitely not required
     if (saidTodayTime()) return; // only once a day
+    // One alert only: when you leave town.
     const remaining = bufferMeters() - pastCityMeters;
-    if (remaining > 0 && remaining <= APPROACH_METERS && !announcedApproach) {
-      announcedApproach = true;
-      speak('Coming up: {NAME} point in about ' + Math.max(10, Math.round(remaining / 10) * 10) + ' meters.');
-      notify('Tefilas HaDerech coming up', 'About ' + Math.max(10, Math.round(remaining / 10) * 10) + ' m to the tefillah point.', 'approach');
-    }
     if (remaining <= 0 && !announcedNow) {
       announcedNow = true;
-      notify(tripStarted ? 'Say Tefilas HaDerech now' : 'You have left town — say Tefilas HaDerech',
+      notify('You have left town — say Tefilas HaDerech',
         'You are past the city and its 70 amos. Tap to open the tefillah.', 'now');
       const offerRead = !prayerOffered && document.getElementById('read-prayer').checked &&
         ('speechSynthesis' in window);
@@ -768,10 +772,6 @@
         document.getElementById('prayer-accept').hidden = false;
         prayerAudioEl(); // start buffering the recording before the driver taps
       }
-      // Still in the alert state a little later? Remind once in case it was missed.
-      setTimeout(() => {
-        if (!reciting && !prayerAccepted && bufferMeters() - lastKnownDistance <= 0) speak('Reminder: you may now say {NAME}.');
-      }, 60000);
     }
   }
 
@@ -803,27 +803,6 @@
     notify('Notifications are on', 'You will be alerted when you start travelling and when to say Tefilas HaDerech.', 'test');
   });
   refreshNotifyButton();
-
-  // ----- Trip start detection -----
-  // Alerts the traveler that the app has noticed they are on the move — so someone who
-  // left town without thinking about it still hears that tracking is on.
-  const TRIP_SPEED_MS = 4.5; // ~16 km/h: faster than walking
-  let tripStarted = false;
-  let prevFix = null;
-  function checkTripStart(p) {
-    const now = p.timestamp || Date.now();
-    let speed = p.coords.speed;
-    if ((speed === null || isNaN(speed)) && prevFix && now > prevFix.t) {
-      speed = haversineMeters(prevFix.lat, prevFix.lon, p.coords.latitude, p.coords.longitude) / ((now - prevFix.t) / 1000);
-    }
-    prevFix = { lat: p.coords.latitude, lon: p.coords.longitude, t: now };
-    if (tripStarted || !(speed >= TRIP_SPEED_MS)) return;
-    tripStarted = true;
-    if (bufferMeters() - lastKnownDistance > 0) {
-      speak('Trip started. I will tell you when to say {NAME}.');
-      notify('Trip started', 'Tracking is on — you will be alerted when to say Tefilas HaDerech. Keep this page open.', 'trip');
-    }
-  }
 
   // ----- Live GPS tracking -----
   let markedCoords = null;   // manual-mark fallback
@@ -876,7 +855,6 @@
     watchId = navigator.geolocation.watchPosition(
       (p) => {
         lastFixTime = Date.now();
-        checkTripStart(p);
         const d = activeCompute(p.coords.latitude, p.coords.longitude);
         lastKnownDistance = d;
         statusEl.textContent = activeStatusText(d) + ' (updated ' + new Date().toLocaleTimeString() + ')';
@@ -1088,8 +1066,8 @@
 
   // ----- Installable app + update alerts -----
   // Each release: bump VERSION in sw.js and APP_VERSION/WHATS_NEW here.
-  const APP_VERSION = '2026-10-15c';
-  const WHATS_NEW = 'Tracking keeps going while you travel, a trip-start alert, STAR-K shiurim, a once-a-day reminder, and v’sachzireinu for same-day returns.';
+  const APP_VERSION = '2026-10-16';
+  const WHATS_NEW = 'Fewer alerts — you now get just one, when you leave town.';
 
   (function showWhatsNew() {
     let seen = null;
