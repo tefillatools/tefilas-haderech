@@ -1,5 +1,5 @@
 // Bump VERSION with every release: installed copies notice the change and tell the user.
-const VERSION = '2026-10-15';
+const VERSION = '2026-10-15b';
 const CACHE = 'thd-' + VERSION;
 const FILES = ['./', 'index.html', 'manifest.json', 'icon-192.png', 'icon-512.png'];
 

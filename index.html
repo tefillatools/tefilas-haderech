@@ -1088,7 +1088,7 @@
 
   // ----- Installable app + update alerts -----
   // Each release: bump VERSION in sw.js and APP_VERSION/WHATS_NEW here.
-  const APP_VERSION = '2026-10-15';
+  const APP_VERSION = '2026-10-15b';
   const WHATS_NEW = 'Tracking keeps going while you travel, a trip-start alert, STAR-K shiurim, a once-a-day reminder, and v’sachzireinu for same-day returns.';
 
   (function showWhatsNew() {
@@ -1104,8 +1104,9 @@
 
   if ('serviceWorker' in navigator) {
     let refreshing = false;
+    const hadController = !!navigator.serviceWorker.controller; // first visit: nothing to refresh
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (refreshing) return;
+      if (refreshing || !hadController) return;
       refreshing = true;
       location.reload();
     });
